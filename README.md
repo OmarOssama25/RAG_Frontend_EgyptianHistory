@@ -39,8 +39,8 @@ To run this project locally, follow these steps:
 
 1. Clone the repository:
 ```
- git clone https://github.com/OmarOssama25/egyptian-history-rag-frontend.git
-cd egyptian-history-rag-frontend
+ git clone https://github.com/OmarOssama25/RAG_Frontend_EgyptianHistory.git
+cd RAG_Frontend_EgyptianHistory
 ```
 
 2. Install dependencies:
