@@ -1,6 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 
+// Helper function to extract text from any response format
+const extractAnswerText = (response) => {
+  // If response is already a string
+  if (typeof response === 'string') {
+    // If it looks like JSON, try to parse it
+    if (response.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(response);
+        return parsed.answer || '';
+      } catch (e) {
+        // If parsing fails, return the original string
+        return response;
+      }
+    }
+    // Otherwise return the string as-is
+    return response;
+  }
+  
+  // If response is an object with answer property
+  if (response && typeof response === 'object' && response.answer) {
+    return response.answer;
+  }
+  
+  // If response is an object with response property
+  if (response && typeof response === 'object' && response.response) {
+    return response.response;
+  }
+  
+  // If we can't extract anything meaningful, convert to string
+  return typeof response === 'object' ? JSON.stringify(response) : String(response);
+};
+
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -27,17 +59,16 @@ const ChatInterface = () => {
       console.log("Sending question to API:", input.trim());
       
       const apiResponse = await api.askQuestion(input.trim());
-      console.log("Received response:", apiResponse);
+      console.log("Raw API response:", apiResponse);
       
-      // Extract the answer and sources directly from the response
-      // This assumes your backend returns { answer: "...", sources: [...] }
-      const answerText = apiResponse.answer || '';
-      const sourcesArray = apiResponse.sources || [];
+      // Extract only the answer text using our helper function
+      const answerText = extractAnswerText(apiResponse);
+      console.log("Extracted answer text:", answerText);
       
+      // Create a message with ONLY the text content
       const botMessage = { 
         type: 'bot', 
-        content: answerText, 
-        sources: sourcesArray 
+        content: answerText
       };
       
       setMessages(prev => [...prev, botMessage]);
@@ -57,6 +88,22 @@ const ChatInterface = () => {
     }
   };  
 
+  // Helper function to safely render message content
+  const renderMessageContent = (content) => {
+    // If content is a string, display it directly
+    if (typeof content === 'string') {
+      return content;
+    }
+    
+    // If content is an object with an answer property, display only the answer
+    if (content && typeof content === 'object' && content.answer) {
+      return content.answer;
+    }
+    
+    // Convert any other value to string
+    return JSON.stringify(content);
+  };
+
   return (
     <div className="chat-container">
       <div className="chat-messages">
@@ -70,20 +117,8 @@ const ChatInterface = () => {
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.type}`}>
             <div className="message-content">
-              {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
+              {renderMessageContent(msg.content)}
             </div>
-            {msg.sources && Array.isArray(msg.sources) && msg.sources.length > 0 && (
-              <div className="sources">
-                <p>Sources:</p>
-                <ul>
-                  {msg.sources.map((source, idx) => (
-                    <li key={idx}>
-                      {source.page ? `Page ${source.page}: ${source.text}` : source}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         ))}
         
@@ -117,3 +152,4 @@ const ChatInterface = () => {
 };
 
 export default ChatInterface;
+

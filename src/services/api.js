@@ -1,4 +1,3 @@
-// src/services/api.js
 import axios from 'axios';
 
 const API_URL = 'http://localhost:3001/api'; // Adjust if needed
@@ -49,7 +48,7 @@ askQuestion: async (question) => {
     console.log("Making request to API with question:", question);
     
     const response = await axios.post(`${API_URL}/query`, 
-      { question: question },
+      { query: question },
       { headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } }
     );
     
