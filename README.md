@@ -1,73 +1,129 @@
-<<<<<<< HEAD
-# Getting Started with Create React App
+# Egyptian History RAG Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based frontend application that interfaces with a Retrieval-Augmented Generation (RAG) system focused on Egyptian history. This application allows users to upload PDF documents about Egyptian history, index them, and ask questions to get accurate information extracted from the documents.
 
-## Available Scripts
+## Table of Contents
 
-In the project directory, you can run:
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Technologies Used](#technologies-used)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Backend Integration](#backend-integration)
+- [License](#license)
 
-### `npm start`
+## Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Document Upload**: Upload PDF documents containing Egyptian history information
+- **Document Indexing**: Process uploaded documents to make them searchable
+- **Interactive Chat Interface**: Ask questions about Egyptian history and receive answers based on the indexed documents
+- **Document Management**: View and manage indexed and unindexed documents
+- **Real-time Indexing Status**: Monitor the progress of document indexing
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Screenshots
 
-### `npm test`
+![Homepage](path/to/homepage-screenshot.png)
+![Chat Interface](path/to/chat-screenshot.png)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Technologies Used
 
-### `npm run build`
+- React.js
+- Axios for API communication
+- React Router for navigation
+- Styled-components for styling
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Installation
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+To run this project locally, follow these steps:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Clone the repository:
+```
+ git clone https://github.com/OmarOssama25/RAG_Frontend_EgyptianHistory.git
+cd RAG_Frontend_EgyptianHistory
+```
 
-### `npm run eject`
+2. Install dependencies:
+```
+npm install
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+3. Set up the backend:
+- Make sure your RAG backend server is running
+- By default, the frontend expects the backend to be running on http://localhost:3001
+- If your backend uses a different URL, update the `API_URL` in `src/services/api.js`
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+4. Start the development server:
+```
+npm start
+```
+5. Open your browser and navigate to:
+```
+http://localhost:3000
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Usage
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+1. **Uploading Documents**:
+- On the home page, use the document uploader to add PDF files about Egyptian history
+- Click "Upload Document" to submit your file
 
-## Learn More
+2. **Indexing Documents**:
+- After uploading, your document will appear in the "Uploaded Documents (Not Indexed)" section
+- Click "Index Document" to process the document for searching
+- Wait for the indexing process to complete
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+3. **Asking Questions**:
+- Navigate to the Chat page
+- Type your question about Egyptian history in the input field
+- Press Enter or click "Send" to submit your question
+- View the response generated from your indexed documents
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Project Structure
+```
+egypt-rag-frontend/
+├── public/
+├── src/
+│ ├── components/
+│ │ ├── ChatInterface.jsx
+│ │ ├── DocumentUploader.jsx
+│ │ ├── DocumentManager.jsx
+│ │ └── ...
+│ ├── services/
+│ │ └── api.js
+│ ├── pages/
+│ │ ├── Home.jsx
+│ │ └── Chat.jsx
+│ ├── App.js
+│ └── index.js
+└── package.json
+```
 
-### Code Splitting
+## Backend Integration
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+This frontend is designed to work with a Node.js/Python backend RAG system. The backend structure should include:
 
-### Analyzing the Bundle Size
+```
+├── data/ # Uploaded PDF storage
+├── vector_store/ # Saved vector embeddings
+├── model_server.py # Flask model services
+├── models/
+│ ├── embedding.py # Embedding model wrapper
+│ └── llm.py # Gemini 2.0 Flash interface
+├── rag/
+│ ├── indexer.py # PDF processing
+│ ├── retriever.py # Semantic search
+│ └── generator.py # Response generation
+├── backend/
+│ ├── server.js # Main API server
+│ ├── routes/
+│ │ └── api.js # API endpoints
+│ ├── controllers/
+│ │ └──ragController.js # Business logic
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Make sure your backend is properly set up and running before using the frontend.
 
-### Making a Progressive Web App
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-=======
-
+This project is licensed under the MIT License - see the LICENSE file for details.
