@@ -1,43 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
-
-// Helper function to extract text from any response format
-const extractAnswerText = (response) => {
-  // If response is already a string
-  if (typeof response === 'string') {
-    // If it looks like JSON, try to parse it
-    if (response.trim().startsWith('{')) {
-      try {
-        const parsed = JSON.parse(response);
-        return parsed.answer || '';
-      } catch (e) {
-        // If parsing fails, return the original string
-        return response;
-      }
-    }
-    // Otherwise return the string as-is
-    return response;
-  }
-  
-  // If response is an object with answer property
-  if (response && typeof response === 'object' && response.answer) {
-    return response.answer;
-  }
-  
-  // If response is an object with response property
-  if (response && typeof response === 'object' && response.response) {
-    return response.response;
-  }
-  
-  // If we can't extract anything meaningful, convert to string
-  return typeof response === 'object' ? JSON.stringify(response) : String(response);
-};
+import './ChatInterface.css';
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [currentStreamedText, setCurrentStreamedText] = useState('');
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const streamTimeoutRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,7 +18,97 @@ const ChatInterface = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, currentStreamedText]);
+
+  useEffect(() => {
+    // Focus input field when component mounts
+    inputRef.current?.focus();
+    
+    // Clean up any lingering timeouts when component unmounts
+    return () => {
+      if (streamTimeoutRef.current) {
+        clearTimeout(streamTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Helper function to extract answer text
+  const extractAnswerText = (response) => {
+    if (typeof response === 'string') {
+      if (response.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(response);
+          return parsed.answer || '';
+        } catch (e) {
+          return response;
+        }
+      }
+      return response;
+    }
+    
+    if (response && typeof response === 'object' && response.answer) {
+      return response.answer;
+    }
+    
+    if (response && typeof response === 'object' && response.response) {
+      return response.response;
+    }
+    
+    return typeof response === 'object' ? JSON.stringify(response) : String(response);
+  };
+
+  // Fixed streaming function to ensure the first letter appears
+  const simulateStreaming = (text) => {
+    // Clear any existing timeout to avoid conflicts
+    if (streamTimeoutRef.current) {
+      clearTimeout(streamTimeoutRef.current);
+    }
+    
+    setStreaming(true);
+    // Start with an empty string
+    setCurrentStreamedText('');
+    
+    // Break the text into characters
+    const textChunks = text.split('');
+    let currentIndex = 0;
+    
+    // Explicit function to add chunks one by one
+    const addNextChunk = () => {
+      if (currentIndex < textChunks.length) {
+        // Explicitly update with exact current index
+        setCurrentStreamedText(textChunks.slice(0, currentIndex + 1).join(''));
+        currentIndex++;
+        
+        // Store timeout reference for cleanup
+        streamTimeoutRef.current = setTimeout(() => {
+          addNextChunk();
+        }, Math.floor(Math.random() * 15) + 10); // 10-25ms delay
+      } else {
+        // Finished streaming, add to messages
+        finishStreaming(text);
+      }
+    };
+    
+    // Start immediately with the first character
+    setCurrentStreamedText(textChunks[0]);
+    currentIndex = 1;
+    
+    // Continue with the rest after a delay
+    streamTimeoutRef.current = setTimeout(() => {
+      addNextChunk();
+    }, Math.floor(Math.random() * 15) + 10);
+  };
+  
+  // Called when streaming is complete
+  const finishStreaming = (completeText) => {
+    setMessages(prev => [...prev, { 
+      type: 'bot', 
+      content: completeText
+    }]);
+    setStreaming(false);
+    setCurrentStreamedText('');
+    setLoading(false);
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -61,17 +124,12 @@ const ChatInterface = () => {
       const apiResponse = await api.askQuestion(input.trim());
       console.log("Raw API response:", apiResponse);
       
-      // Extract only the answer text using our helper function
+      // Extract only the answer text
       const answerText = extractAnswerText(apiResponse);
       console.log("Extracted answer text:", answerText);
       
-      // Create a message with ONLY the text content
-      const botMessage = { 
-        type: 'bot', 
-        content: answerText
-      };
-      
-      setMessages(prev => [...prev, botMessage]);
+      // Stream the response
+      simulateStreaming(answerText);
     } catch (error) {
       console.error("Chat API error:", error);
       
@@ -83,29 +141,17 @@ const ChatInterface = () => {
       };
       
       setMessages(prev => [...prev, errorMessage]);
-    } finally {
       setLoading(false);
     }
   };  
 
-  // Helper function to safely render message content
-  const renderMessageContent = (content) => {
-    // If content is a string, display it directly
-    if (typeof content === 'string') {
-      return content;
-    }
-    
-    // If content is an object with an answer property, display only the answer
-    if (content && typeof content === 'object' && content.answer) {
-      return content.answer;
-    }
-    
-    // Convert any other value to string
-    return JSON.stringify(content);
-  };
-
   return (
     <div className="chat-container">
+      <div className="chat-header">
+        <h2>Egyptian History Assistant</h2>
+        <p>Powered by RAG technology</p>
+      </div>
+      
       <div className="chat-messages">
         {messages.length === 0 && (
           <div className="welcome-message">
@@ -115,41 +161,105 @@ const ChatInterface = () => {
         )}
         
         {messages.map((msg, index) => (
-          <div key={index} className={`message ${msg.type}`}>
-            <div className="message-content">
-              {renderMessageContent(msg.content)}
+          <div key={index} className={`message-wrapper ${msg.type}-wrapper`}>
+            {msg.type === 'user' && (
+              <div className="avatar user-avatar">
+                <span>You</span>
+              </div>
+            )}
+            <div className={`message ${msg.type}`}>
+              {msg.type === 'bot' && (
+                <div className="bot-label">
+                  <div className="bot-icon">🔍</div>
+                  <div className="bot-name">History AI</div>
+                </div>
+              )}
+              <div className="message-content">
+                {msg.content}
+              </div>
             </div>
+            {msg.type === 'bot' && (
+              <div className="avatar bot-avatar">
+                <span>AI</span>
+              </div>
+            )}
           </div>
         ))}
         
-        {loading && (
-          <div className="message bot loading">
-            <div className="typing-indicator">
-              <span></span>
-              <span></span>
-              <span></span>
+        {streaming && (
+          <div className="message-wrapper bot-wrapper">
+            <div className="avatar bot-avatar">
+              <span>AI</span>
+            </div>
+            <div className="message bot">
+              <div className="bot-label">
+                <div className="bot-icon">🔍</div>
+                <div className="bot-name">History AI</div>
+              </div>
+              <div className="message-content">
+                <div className="streaming-text">
+                  {currentStreamedText}
+                  <span className="cursor"></span>
+                </div>
+              </div>
             </div>
           </div>
         )}
+        
+        {loading && !streaming && (
+          <div className="message-wrapper bot-wrapper">
+            <div className="avatar bot-avatar">
+              <span>AI</span>
+            </div>
+            <div className="message bot">
+              <div className="bot-label">
+                <div className="bot-icon">🔍</div>
+                <div className="bot-name">History AI</div>
+              </div>
+              <div className="message-content">
+                <div className="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </div>
       
-      <div className="chat-input">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Ask about Egyptian history..."
-          disabled={loading}
-        />
-        <button onClick={handleSend} disabled={loading || !input.trim()}>
-          {loading ? 'Sending...' : 'Send'}
-        </button>
+      <div className="chat-input-container">
+        <div className="chat-input-wrapper">
+          <input
+            ref={inputRef}
+            type="text"
+            className="chat-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Ask about Egyptian history..."
+            disabled={loading || streaming}
+          />
+          <button 
+            className="send-button"
+            onClick={handleSend} 
+            disabled={loading || streaming || !input.trim()}
+            aria-label="Send message"
+          >
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+        <div className="input-footer">
+          <span className="input-hint">Press Enter to send</span>
+        </div>
       </div>
     </div>
   );
 };
 
 export default ChatInterface;
-
