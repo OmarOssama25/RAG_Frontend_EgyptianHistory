@@ -351,3 +351,44 @@
     font-size: 1.4rem;
     margin-right: 4px;
 }
+
+/* For user messages - position icon on the right */
+.user-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .message.user {
+    margin-right: 10px; /* Add space between message and icon */
+    order: 1; /* Place message first */
+  }
+  
+  .user-avatar {
+    order: 2; /* Place avatar after message */
+    margin-left: 0; /* Remove any existing left margin */
+    margin-right: 0; /* Remove any existing right margin */
+  }
+  
+  /* For bot responses - position icon on the left */
+  .bot-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .message.bot {
+    margin-left: 10px; /* Add space between icon and message */
+    order: 2; /* Place message second */
+  }
+  
+  .bot-avatar {
+    order: 1; /* Place avatar before message */
+    margin-right: 0; /* Remove any existing right margin */
+    margin-left: 0; /* Remove any existing left margin */
+  }
+  
