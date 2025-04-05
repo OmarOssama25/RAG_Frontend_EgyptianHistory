@@ -23,8 +23,8 @@ A React-based frontend application that interfaces with a Retrieval-Augmented Ge
 
 ## Screenshots
 
-![Homepage](path/to/homepage-screenshot.png)
-![Chat Interface](path/to/chat-screenshot.png)
+![Homepage](https://github.com/OmarOssama25/RAG_Frontend_EgyptianHistory/blob/main/Home_EgyptianHistory.png)
+![Chat Interface](https://github.com/OmarOssama25/RAG_Frontend_EgyptianHistory/blob/main/Chat_EgyptianHistory.png)
 
 ## Technologies Used
 
