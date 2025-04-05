@@ -111,6 +111,7 @@ This frontend is designed to work with a Node.js/Python backend RAG system. The 
 │ ├── embedding.py # Embedding model wrapper
 │ └── llm.py # Gemini 2.0 Flash interface
 ├── rag/
+│ ├── classifier.py # Classify prompts either RAG related or Converstational
 │ ├── indexer.py # PDF processing
 │ ├── retriever.py # Semantic search
 │ └── generator.py # Response generation
