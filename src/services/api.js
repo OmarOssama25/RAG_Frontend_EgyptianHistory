@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3001/api'; // Adjust if needed
+const API_URL = 'https://cec7-197-51-187-129.ngrok-free.app/api'; // Adjust if needed
 
 const api = {
   // Upload PDF documents (without indexing)

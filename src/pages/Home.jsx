@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import DocumentUploader from '../components/DocumentUploader';
 import DocumentManager from '../components/DocumentManager';
+import '../../node_modules/bootstrap/dist/css/bootstrap.min.css';
+import Chat from './Chat';
+
 
 const Home = () => {
   const [refreshDocuments, setRefreshDocuments] = useState(0);
@@ -14,7 +17,8 @@ const Home = () => {
 
   return (
     <div className="home-container">
-      <h1>Egyptian History RAG System</h1>
+      
+      {/* <h1>Egyptian History RAG System</h1>
       
       <section className="upload-section">
         <DocumentUploader onDocumentUploaded={handleDocumentUploaded} />
@@ -28,7 +32,9 @@ const Home = () => {
         <Link to="/chat" className="chat-button">
           Start Chatting About Egyptian History
         </Link>
-      </section>
+      </section> */}
+      <Chat />
+
     </div>
   );
 };
