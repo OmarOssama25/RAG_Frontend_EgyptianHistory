@@ -2,13 +2,76 @@ import axios from "axios";
 
 const API_URL = "http://localhost:3001/api"; // Adjust if needed
 
+// Create axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add request interceptor to include auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Helper function to extract main topic from conversation history
+const extractTopicFromHistory = (conversationHistory) => {
+  if (!conversationHistory || conversationHistory.length === 0) {
+    return null;
+  }
+
+  // Look for key topics in the conversation history
+  const topics = [
+    'alexandria', 'pyramids', 'giza', 'sphinx', 'temple', 'pharaoh', 'cleopatra',
+    'valley of the kings', 'karnak', 'luxor', 'abu simbel', 'philae', 'saqqara',
+    'pompey', 'catacombs', 'roman', 'greco', 'egyptian', 'ancient egypt'
+  ];
+
+  // Search through all messages in history
+  for (const message of conversationHistory) {
+    const content = message.content.toLowerCase();
+    
+    // Find the most specific topic mentioned
+    for (const topic of topics) {
+      if (content.includes(topic)) {
+        return topic;
+      }
+    }
+    
+    // Look for specific structures or places
+    const specificMatches = content.match(/\b(great pyramid|sphinx|temple of|valley of|pharaoh|king|queen)\b/gi);
+    if (specificMatches) {
+      return specificMatches[0].toLowerCase();
+    }
+  }
+
+  return null;
+};
+
 const api = {
+  // Set auth token for subsequent requests
+  setAuthToken: (token) => {
+    if (token) {
+      localStorage.setItem("authToken", token);
+    } else {
+      localStorage.removeItem("authToken");
+    }
+  },
+
   // Add this in api.js
   login: async (data) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, data, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await axiosInstance.post(`/auth/login`, data);
       return response.data;
     } catch (error) {
       console.error("Error during login:", error);
@@ -18,12 +81,51 @@ const api = {
 
   signup: async (data) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/signup`, data, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await axiosInstance.post(`/auth/signup`, data);
       return response.data;
     } catch (error) {
       console.error("Error during signup:", error);
+      throw error;
+    }
+  },
+
+  // Conversation management
+  getConversations: async () => {
+    try {
+      const response = await axiosInstance.get(`/chat/conversations`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      throw error;
+    }
+  },
+
+  getConversation: async (conversationId) => {
+    try {
+      const response = await axiosInstance.get(`/chat/conversations/${conversationId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      throw error;
+    }
+  },
+
+  createConversation: async (data) => {
+    try {
+      const response = await axiosInstance.post(`/chat/conversations`, data);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      throw error;
+    }
+  },
+
+  addMessageToConversation: async (conversationId, messageData) => {
+    try {
+      const response = await axiosInstance.post(`/chat/conversations/${conversationId}/messages`, messageData);
+      return response.data;
+    } catch (error) {
+      console.error("Error adding message to conversation:", error);
       throw error;
     }
   },
@@ -34,7 +136,7 @@ const api = {
     formData.append("pdf", file);
 
     try {
-      const response = await axios.post(`${API_URL}/upload`, formData, {
+      const response = await axiosInstance.post(`/upload`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -49,7 +151,7 @@ const api = {
   // Index an uploaded document separately
   indexDocument: async (filename) => {
     try {
-      const response = await axios.post(`${API_URL}/index`, { filename });
+      const response = await axiosInstance.post(`/index`, { filename });
       return response.data;
     } catch (error) {
       console.error("Error indexing document:", error);
@@ -59,7 +161,7 @@ const api = {
 
   getIndexingStatus: async () => {
     try {
-      const response = await axios.get(`${API_URL}/indexing-status`);
+      const response = await axiosInstance.get(`/indexing-status`);
       return response.data;
     } catch (error) {
       console.error("Error getting indexing status:", error);
@@ -68,38 +170,110 @@ const api = {
   },
 
   // Query the RAG system
-  askQuestion: async (question) => {
+  askQuestion: async (questionOrRequest, useConversationFeatures = false) => {
     try {
-      console.log("Making request to API with question:", question);
-
-      const response = await axios.post(
-        `${API_URL}/query`,
-        { query: question },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        }
-      );
-
-      console.log("Raw axios response:", response);
-      console.log("Response data type:", typeof response.data);
-
-      // If response.data is a string that looks like JSON, parse it
-      if (
-        typeof response.data === "string" &&
-        (response.data.startsWith("{") || response.data.startsWith("["))
-      ) {
-        try {
-          return JSON.parse(response.data);
-        } catch (e) {
-          console.error("Failed to parse response data as JSON:", e);
-          return response.data;
+      // Handle both simple string questions and complex request objects
+      let requestData;
+      let endpoint = "/query";
+      
+      if (typeof questionOrRequest === "string") {
+        // Simple string query - backward compatibility
+        requestData = { query: questionOrRequest };
+      } else {
+        // Complex request object with conversation context
+        requestData = questionOrRequest;
+        // Use conversation endpoint if conversationId is provided AND conversation features are enabled
+        if (questionOrRequest.conversationId && useConversationFeatures) {
+          endpoint = `/chat/conversations/${questionOrRequest.conversationId}/messages`;
         }
       }
 
-      return response.data;
+      console.log("Making request to API with data:", requestData);
+
+      try {
+        // First try the conversation endpoint if specified
+        const response = await axiosInstance.post(endpoint, requestData);
+        console.log("Raw axios response:", response);
+        console.log("Response data type:", typeof response.data);
+
+        // If response.data is a string that looks like JSON, parse it
+        if (
+          typeof response.data === "string" &&
+          (response.data.startsWith("{") || response.data.startsWith("["))
+        ) {
+          try {
+            return JSON.parse(response.data);
+          } catch (e) {
+            console.error("Failed to parse response data as JSON:", e);
+            return response.data;
+          }
+        }
+
+        return response.data;
+      } catch (conversationError) {
+        // If conversation endpoint fails, fall back to regular query endpoint
+        if (endpoint !== "/query" && conversationError.response?.status === 400) {
+          console.log("Conversation endpoint failed, falling back to regular query endpoint");
+          
+          // Extract query and enhance it with context if available
+          let fallbackQuery = typeof questionOrRequest === "string" 
+            ? questionOrRequest 
+            : questionOrRequest.query;
+          
+          // If we have conversation history, enhance the query with context
+          if (questionOrRequest.conversationHistory && questionOrRequest.conversationHistory.length > 0) {
+            const lastUserMessage = questionOrRequest.conversationHistory
+              .filter(msg => msg.role === "user")
+              .slice(-1)[0];
+            
+            if (lastUserMessage && lastUserMessage.content) {
+              // Enhance vague questions with context
+              const vaguePatterns = [
+                /^what (is|does) (it|this|that) (mean|represent|refer to)\??$/i,
+                /^what (is|does) (it|this|that)\??$/i,
+                /^when was (it|this|that) built\??$/i,
+                /^where is (it|this|that)\??$/i,
+                /^how (was|did) (it|this|that)\??$/i
+              ];
+              
+              if (vaguePatterns.some(pattern => pattern.test(fallbackQuery))) {
+                // Replace vague references with the actual topic from previous conversation
+                const contextTopic = extractTopicFromHistory(questionOrRequest.conversationHistory);
+                if (contextTopic) {
+                  const originalQuery = fallbackQuery;
+                  fallbackQuery = fallbackQuery.replace(/\b(it|this|that)\b/gi, contextTopic);
+                  console.log(`Enhanced vague query: "${originalQuery}" → "${fallbackQuery}"`);
+                }
+              }
+            }
+          }
+          
+          const fallbackData = {
+            query: fallbackQuery
+          };
+          
+          const fallbackResponse = await axiosInstance.post("/query", fallbackData);
+          console.log("Fallback response:", fallbackResponse);
+          
+          // If response.data is a string that looks like JSON, parse it
+          if (
+            typeof fallbackResponse.data === "string" &&
+            (fallbackResponse.data.startsWith("{") || fallbackResponse.data.startsWith("["))
+          ) {
+            try {
+              return JSON.parse(fallbackResponse.data);
+            } catch (e) {
+              console.error("Failed to parse fallback response data as JSON:", e);
+              return fallbackResponse.data;
+            }
+          }
+
+          return fallbackResponse.data;
+        } else {
+          // Re-throw the error if it's not a 400 from conversation endpoint
+          throw conversationError;
+        }
+      }
     } catch (error) {
       console.error("Error querying RAG system:", error);
       throw error;
@@ -109,11 +283,35 @@ const api = {
   // Get list of documents
   getDocuments: async () => {
     try {
-      const response = await axios.get(`${API_URL}/documents`);
+      const response = await axiosInstance.get(`/documents`);
       return response.data;
     } catch (error) {
       console.error("Error fetching documents:", error);
       throw error;
+    }
+  },
+
+  // Save chat message to database
+  saveChatMessage: async (messageData) => {
+    try {
+      const response = await axiosInstance.post(`/chat/messages`, messageData);
+      return response.data;
+    } catch (error) {
+      // Silently ignore errors - chat should continue working even if saving fails
+      console.log("Chat message saving not available (endpoint may not exist yet)");
+      return null;
+    }
+  },
+
+  // Get chat history for a user
+  getChatHistory: async (userId) => {
+    try {
+      const response = await axiosInstance.get(`/chat/messages?userId=${userId}`);
+      return response.data;
+    } catch (error) {
+      // Silently ignore errors - return empty array so chat continues working
+      console.log("Chat history not available (endpoint may not exist yet)");
+      return [];
     }
   },
 };
