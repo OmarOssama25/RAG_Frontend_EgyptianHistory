@@ -23,7 +23,7 @@
 //   useEffect(() => {
 //     // Focus input field when component mounts
 //     inputRef.current?.focus();
-    
+
 //     // Clean up any lingering timeouts when component unmounts
 //     return () => {
 //       if (streamTimeoutRef.current) {
@@ -45,15 +45,15 @@
 //       }
 //       return response;
 //     }
-    
+
 //     if (response && typeof response === 'object' && response.answer) {
 //       return response.answer;
 //     }
-    
+
 //     if (response && typeof response === 'object' && response.response) {
 //       return response.response;
 //     }
-    
+
 //     return typeof response === 'object' ? JSON.stringify(response) : String(response);
 //   };
 
@@ -63,22 +63,22 @@
 //     if (streamTimeoutRef.current) {
 //       clearTimeout(streamTimeoutRef.current);
 //     }
-    
+
 //     setStreaming(true);
 //     // Start with an empty string
 //     setCurrentStreamedText('');
-    
+
 //     // Break the text into characters
 //     const textChunks = text.split('');
 //     let currentIndex = 0;
-    
+
 //     // Explicit function to add chunks one by one
 //     const addNextChunk = () => {
 //       if (currentIndex < textChunks.length) {
 //         // Explicitly update with exact current index
 //         setCurrentStreamedText(textChunks.slice(0, currentIndex + 1).join(''));
 //         currentIndex++;
-        
+
 //         // Store timeout reference for cleanup
 //         streamTimeoutRef.current = setTimeout(() => {
 //           addNextChunk();
@@ -88,21 +88,21 @@
 //         finishStreaming(text);
 //       }
 //     };
-    
+
 //     // Start immediately with the first character
 //     setCurrentStreamedText(textChunks[0]);
 //     currentIndex = 1;
-    
+
 //     // Continue with the rest after a delay
 //     streamTimeoutRef.current = setTimeout(() => {
 //       addNextChunk();
 //     }, Math.floor(Math.random() * 15) + 10);
 //   };
-  
+
 //   // Called when streaming is complete
 //   const finishStreaming = (completeText) => {
-//     setMessages(prev => [...prev, { 
-//       type: 'bot', 
+//     setMessages(prev => [...prev, {
+//       type: 'bot',
 //       content: completeText
 //     }]);
 //     setStreaming(false);
@@ -112,42 +112,41 @@
 
 //   const handleSend = async () => {
 //     if (!input.trim()) return;
-    
+
 //     const userMessage = { type: 'user', content: input };
 //     setMessages(prev => [...prev, userMessage]);
 //     setInput('');
 //     setLoading(true);
-    
-    
+
 //     try {
 //       console.log("Sending question to API:", input.trim());
-      
+
 //       const apiResponse = await api.askQuestion(input.trim());
 //       console.log("Raw API response:", apiResponse);
-      
+
 //       // Extract only the answer text
 //       const answerText = extractAnswerText(apiResponse);
 //       console.log("Extracted answer text:", answerText);
-      
+
 //       // Stream the response
 //       simulateStreaming(answerText);
 //       inputRef.current.value='';
 //       inputRef.current.focus();
 //     } catch (error) {
 //       console.error("Chat API error:", error);
-      
-//       const errorMessage = { 
-//         type: 'error', 
-//         content: error.response?.data?.message || 
-//                  error.message || 
+
+//       const errorMessage = {
+//         type: 'error',
+//         content: error.response?.data?.message ||
+//                  error.message ||
 //                  'Sorry, I encountered an error processing your request.'
 //       };
-      
+
 //       setMessages(prev => [...prev, errorMessage]);
 //       setLoading(false);
 //     }
-    
-//   };  
+
+//   };
 
 //   return (
 //     <div className="chat-container " style={{ height: '100%',overflowY: 'auto' }}>
@@ -155,7 +154,7 @@
 //         <h2>Egyptian History Assistant</h2>
 //         <p>Powered by RAG technology</p>
 //       </div>
-      
+
 //       <div className="chat-messages">
 //         {messages.length === 0 && (
 //           <div className="welcome-message">
@@ -163,7 +162,7 @@
 //             <p>Ask me anything about Egyptian history from the documents you've indexed!</p>
 //           </div>
 //         )}
-        
+
 //         {messages.map((msg, index) => (
 //           <div key={index} className={`message-wrapper ${msg.type}-wrapper `}>
 //             {msg.type === 'user' && (
@@ -189,7 +188,7 @@
 //             )}
 //           </div>
 //         ))}
-        
+
 //         {streaming && (
 //           <div className="message-wrapper bot-wrapper">
 //             <div className="avatar bot-avatar">
@@ -209,7 +208,7 @@
 //             </div>
 //           </div>
 //         )}
-        
+
 //         {loading && !streaming && (
 //           <div className="message-wrapper bot-wrapper">
 //             <div className="avatar bot-avatar">
@@ -230,10 +229,10 @@
 //             </div>
 //           </div>
 //         )}
-        
+
 //         <div ref={messagesEndRef} />
 //       </div>
-      
+
 //       <div className="chat-input-container container-sm">
 //         <div className="chat-input-wrapper">
 //           <input
@@ -248,9 +247,9 @@
 //             placeholder="Ask about Egyptian history..."
 //             disabled={loading || streaming}
 //           />
-//           <button 
+//           <button
 //             className="send-button"
-//             onClick={handleSend} 
+//             onClick={handleSend}
 //             disabled={loading || streaming || !input.trim()}
 //             aria-label="Send message"
 //           >
@@ -259,7 +258,7 @@
 //               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
 //             </svg>
 //           </button>
-          
+
 //         </div>
 //         <div className="input-footer">
 //           <span className="input-hint">Press Enter to send</span>
@@ -271,44 +270,259 @@
 
 // export default ChatInterface;
 
+import React, { useState, useEffect, useRef } from "react";
+import "./ChatInterface.css";
+import pyramids from "../Assets/Images/Pyramids.png";
+import sabilKuttab from "../Assets/Images/sabil-kuttab.jpg";
+import romanAmphitheater from "../Assets/Images/roman-amphitheater.jpg";
+import catacombsKomElShoqafa from "../Assets/Images/catacombsKomElShoqafa.jpg";
+import pompeysPillar from "../Assets/Images/pompeysPillar.jpg";
+import blackPyramid from "../Assets/Images/blackPyramid.jpg";
+import greatPyramid from "../Assets/Images/greatPyramid.jpg";
+import khafrePyramid from "../Assets/Images/khafrePyramid.jpg";
+import menkaurePyramid from "../Assets/Images/menkaurePyramid.jpg";
+import sphinxGiza from "../Assets/Images/sphinxGiza.jpg";
+import karnakTemple from "../Assets/Images/karnakTemple.jpg";
+import luxorTemple from "../Assets/Images/luxorTemple.jpg";
+import valleyOfTheKings from "../Assets/Images/valleyOfTheKings.jpg";
+import abuSimbelTemple from "../Assets/Images/abuSimbelTemple.jpg";
+import philaeTemple from "../Assets/Images/philaeTemple.jpg";
+import saqqaraStepPyramid from "../Assets/Images/saqqaraStepPyramid.jpg";
 
-import React, { useState, useEffect, useRef } from 'react';
-import './ChatInterface.css';
-import pyramids from '../Assets/Images/Pyramids.png'; 
+import icon from "../Assets/Images/pharaoh-icon.png"; // Assuming you have an icon image for the bot avatar
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([
-    { type: 'bot', content: '👋 Welcome! Ask me anything about Egyptian history.' }
+    {
+      type: "bot",
+      content: "👋 Welcome! Ask me anything about Egyptian history.",
+    },
   ]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // data with imgs to change the background depending on the context ely hys2l feh
+  const data = [
+    { keywords: ["pyramids", "giza", "egypt pyramids"], img: pyramids },
+    { keywords: ["sabil kuttab", "abd elrahman katkhuda"], img: sabilKuttab },
+    {
+      keywords: [
+        "greco",
+        "roman",
+        "Roman amphitheater",
+        "kom el-dikka",
+        "alexandria",
+      ],
+      img: romanAmphitheater,
+    },
+    {
+      keywords: [
+        "catacombs",
+        "kom el-shoqafa",
+        "alexandria",
+        "rock-cut tombs",
+        "2nd century",
+        "burial site",
+        "roman egypt",
+      ],
+      img: catacombsKomElShoqafa,
+    },
+    {
+      keywords: [
+        "pompey's pillar",
+        "alexandria",
+        "roman column",
+        "diocletian",
+        "ancient alexandria",
+        "roman egypt",
+        "pillar of pompey",
+        "alexandria landmarks",
+        "monument",
+        "egyptian roman ruins",
+        "greco-roman",
+        "granite column",
+        "serapeum",
+        "ruins of serapeum",
+        "3rd century",
+      ],
+      img: pompeysPillar,
+    },
+
+    {
+      keywords: [
+        "black pyramid",
+        "king amenemhat iii",
+        "dahshur",
+        "middle kingdom",
+        "mudbrick pyramid",
+        "collapsed pyramid",
+        "amenemhat pyramid",
+      ],
+      img: blackPyramid,
+    },
+    {
+      keywords: [
+        "great pyramid",
+        "pyramid of khufu",
+        "giza",
+        "great pyramid of giza",
+        "cheops",
+        "old kingdom",
+        "largest pyramid",
+        "seven wonders",
+        "pyramids",
+      ],
+      img: greatPyramid,
+    },
+    {
+      keywords: [
+        "pyramid of khafre",
+        "khafre",
+        "giza",
+        "middle pyramid",
+        "second pyramid",
+        "chephren",
+        "pyramids",
+      ],
+      img: khafrePyramid,
+    },
+    {
+      keywords: [
+        "pyramid of menkaure",
+        "menkaure",
+        "giza",
+        "third pyramid",
+        "smallest pyramid",
+        "pyramids",
+      ],
+      img: menkaurePyramid,
+    },
+    {
+      keywords: [
+        "sphinx",
+        "great sphinx",
+        "sphinx of giza",
+        "giza",
+        "lion statue",
+        "khafre sphinx",
+        "ancient egypt",
+        "guardian of pyramids",
+      ],
+      img: sphinxGiza,
+    },
+    {
+      keywords: [
+        "temple of karnak",
+        "karnak",
+        "thebes",
+        "luxor",
+        "amun-ra",
+        "hypostyle hall",
+        "ancient temple",
+        "new kingdom",
+        "egyptian temples",
+      ],
+      img: karnakTemple,
+    },
+    {
+      keywords: [
+        "luxor temple",
+        "luxor",
+        "temple of luxor",
+        "thebes",
+        "amun",
+        "ancient egypt",
+        "night temple",
+        "obelisk",
+        "new kingdom",
+      ],
+      img: luxorTemple,
+    },
+    {
+      keywords: [
+        "valley of the kings",
+        "thebes",
+        "luxor",
+        "royal tombs",
+        "pharaoh tombs",
+        "tutankhamun",
+        "new kingdom",
+        "necropolis",
+        "burial site",
+      ],
+      img: valleyOfTheKings,
+    },
+    {
+      keywords: [
+        "temple of abu simbel",
+        "abu simbel",
+        "ramses ii",
+        "great temple",
+        "nubia",
+        "rock-cut temple",
+        "aswan",
+        "sun festival",
+        "ancient egypt",
+        "new kingdom",
+      ],
+      img: abuSimbelTemple,
+    },
+    {
+      keywords: [
+        "philae temple",
+        "philae",
+        "isis temple",
+        "temple of isis",
+        "aswan",
+        "greco-roman egypt",
+        "island temple",
+        "ancient egyptian temple",
+        "philae island",
+      ],
+      img: philaeTemple,
+    },
+    {
+      keywords: [
+        "saqqara",
+        "step pyramid",
+        "pyramid of djoser",
+        "djoser",
+        "saqqara step pyramid",
+        "oldest pyramid",
+        "old kingdom",
+        "necropolis",
+        "memphis",
+      ],
+      img: saqqaraStepPyramid,
+    },
+  ];
 
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { type: 'user', content: input };
+    const userMessage = { type: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    setInput("");
     setIsTyping(true);
 
     try {
-      const response = await fetch('/api/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: input })
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: input }),
       });
       const data = await response.json();
 
       const botMessage = {
-        type: 'bot',
-        content: data?.answer || '⚠️ I couldn’t find an answer.'
+        type: "bot",
+        content: data?.answer || "⚠️ I couldn’t find an answer.",
       };
       setMessages((prev) => [...prev, botMessage]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { type: 'error', content: 'Network error. Please try again.' }
+        { type: "error", content: "Network error. Please try again." },
       ]);
     } finally {
       setIsTyping(false);
@@ -316,11 +530,11 @@ const ChatInterface = () => {
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -332,20 +546,22 @@ const ChatInterface = () => {
         <h2>🏺 Egyptian History Assistant</h2>
         <p>Powered by RAG Technology</p>
       </header>
-      <img src={pyramids} alt="" className='imgCover'/>
+      <img src={pyramids} alt="" className="imgCover" />
 
       <div className="chat-messages">
         {messages.map((msg, index) => (
           <div
             key={index}
             className={`message-wrapper ${
-              msg.type === 'user' ? 'user-wrapper' : 'bot-wrapper'
+              msg.type === "user" ? "user-wrapper" : "bot-wrapper"
             }`}
           >
-            {msg.type !== 'user' && (
-              <div className="avatar bot-avatar">AI</div>
+            {msg.type !== "user" && (
+              <div className="avatar bot-avatar">
+                <img src={icon} alt="" />
+              </div>
             )}
-            {msg.type === 'user' && (
+            {msg.type === "user" && (
               <div className="avatar user-avatar">You</div>
             )}
 
@@ -373,7 +589,7 @@ const ChatInterface = () => {
 
       <div className="chat-input-container">
         <div className="chat-input-wrapper">
-          <textarea
+          <input
             className="chat-input"
             placeholder="Type your message..."
             value={input}

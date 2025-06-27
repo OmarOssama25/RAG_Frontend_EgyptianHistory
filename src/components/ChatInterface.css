@@ -106,9 +106,15 @@
 }
 
 .bot-avatar {
-    background-color: #3a3d56;
+    background-color: transparent;
     color: white;
     margin-left: 8px;
+}
+.avatar>img{
+    width: inherit;
+    height: inherit;
+    border-radius: 50%;
+  
 }
 
 .message {
