@@ -14,14 +14,9 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await API.post("/login", { email, password });
+      const res = await API.login({ email, password }); 
       console.log("Backend response: ", res.data)
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("role", res.data.role);
-      //  = res.data.name;
-      sessionStorage.setItem("userName",res.data.fullName);
-      sessionStorage.setItem("loggedIn","yes");
-      window.location.href ="/Home";
+      window.location.href ="/home";
 
     } catch (err) {
       setError("Invalid credentials");
@@ -63,7 +58,7 @@ const Login = () => {
               <button
                 type="submit"
                 className="btn btn-secondary mb-1"
-                onClick={forgetPasswrod()}
+                onClick={forgetPasswrod}
                 style={{fontSize: "small"}}
               >
                 Forget Password
