@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom"; // Import Link from react-router-dom
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import API from "../../services/api";
 import "../../../node_modules/bootstrap/dist/css/bootstrap.min.css";
 import "./LoginStyle.css";
@@ -10,15 +10,21 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate(); // Use React Router navigation
  
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      console.log("Attempting login with email:", email);
       const res = await API.login({ email, password }); 
-      console.log("Backend response: ", res.data)
-      window.location.href ="/home";
+      console.log("Backend response: ", res);
+      console.log("Login successful for email:", email);
+      
+      // Navigate to home page using React Router
+      navigate("/home");
 
     } catch (err) {
+      console.error("Login error:", err);
       setError("Invalid credentials");
     }
   };

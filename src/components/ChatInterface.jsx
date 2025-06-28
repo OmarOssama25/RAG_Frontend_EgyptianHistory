@@ -36,7 +36,42 @@ import saqqaraStepPyramid from "../Assets/Images/saqqaraStepPyramid.jpg";
  * Set this to false to completely disable chat history loading/saving
  * (useful when backend doesn't support chat history endpoints yet)
  */
-const ENABLE_CHAT_HISTORY = true; // Set to false to disable chat history
+const ENABLE_CHAT_HISTORY = true; // Re-enabled - user switching is working correctly
+
+// Global flag to prevent multiple conversation loads
+let globalConversationLoaded = false;
+let globalCurrentUserId = null;
+
+// Global flags to prevent repeated logging
+let hasLoggedConversationFeatures = false;
+let hasLoggedTokenInfo = false;
+
+// Helper functions for global flags
+const getGlobalConversationLoaded = () => {
+  return localStorage.getItem('globalConversationLoaded') === 'true';
+};
+
+const setGlobalConversationLoaded = (value) => {
+  localStorage.setItem('globalConversationLoaded', value.toString());
+};
+
+const getGlobalCurrentUserId = () => {
+  return localStorage.getItem('globalCurrentUserId');
+};
+
+const setGlobalCurrentUserId = (userId) => {
+  if (userId) {
+    localStorage.setItem('globalCurrentUserId', userId);
+  } else {
+    localStorage.removeItem('globalCurrentUserId');
+  }
+};
+
+// Function to reset logging flags
+const resetLoggingFlags = () => {
+  hasLoggedConversationFeatures = false;
+  hasLoggedTokenInfo = false;
+};
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
@@ -46,9 +81,11 @@ const ChatInterface = () => {
   const [currentStreamedText, setCurrentStreamedText] = useState("");
   const [conversationFeaturesAvailable, setConversationFeaturesAvailable] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const streamTimeoutRef = useRef(null);
+  const hasLoadedConversationRef = useRef(false);
   const [backgroundImage, setBackgroundImage] = useState(pyramids);
   const [fade, setFade] = useState(false);
 
@@ -269,46 +306,217 @@ const ChatInterface = () => {
 
   // Track conversation mode changes
   useEffect(() => {
-    console.log(`Conversation features ${conversationFeaturesAvailable ? 'enabled' : 'disabled'}`);
+    if (!hasLoggedConversationFeatures) {
+      console.log(`Conversation features ${conversationFeaturesAvailable ? 'enabled' : 'disabled'}`);
+      hasLoggedConversationFeatures = true;
+    }
   }, [conversationFeaturesAvailable]);
+
+  // Listen for auth token changes (logout/login)
+  useEffect(() => {
+    let isMounted = true;
+    
+    const handleStorageChange = (e) => {
+      if (e.key === 'authToken' && isMounted) {
+        console.log("Auth token changed, clearing user data");
+        console.log("New token value:", e.newValue);
+        clearUserData(false); // Don't reset global flags for storage events
+        setUserId(null);
+      }
+    };
+
+    // Listen for storage events (when auth token is removed in another tab/window)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check if auth token was removed in current tab
+    const checkAuthToken = () => {
+      if (!isMounted) return;
+      
+      const token = localStorage.getItem("authToken");
+      if (!token && userId) {
+        console.log("Auth token removed, clearing user data");
+        clearUserData(false); // Don't reset global flags for auth token removal
+        setUserId(null);
+      } else if (token && !userId) {
+        console.log("Auth token found but no user ID set, extracting user ID");
+        const extractedUserId = extractUserIdFromToken(token);
+        console.log("Extracted user ID from token:", extractedUserId);
+        setUserId(extractedUserId);
+      }
+    };
+
+    // Check periodically for auth token changes
+    const interval = setInterval(checkAuthToken, 2000); // Reduced frequency to 2 seconds
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [userId]);
 
   // Function to extract user ID from auth token
   const extractUserIdFromToken = (token) => {
     try {
       // If your token is a JWT, you can decode it to get user info
       // For now, we'll use a simple approach - you can modify this based on your auth system
-      const tokenData = JSON.parse(atob(token.split('.')[1]));
-      return tokenData.userId || tokenData.id || tokenData.sub || "current-user";
+      if (!hasLoggedTokenInfo) {
+        console.log("Raw token:", token);
+        const tokenParts = token.split('.');
+        console.log("Token parts:", tokenParts);
+        
+        if (tokenParts.length < 2) {
+          console.log("Token doesn't appear to be a valid JWT");
+          hasLoggedTokenInfo = true;
+          return "current-user";
+        }
+        
+        const tokenData = JSON.parse(atob(tokenParts[1]));
+        console.log("Decoded token data:", tokenData);
+        
+        const userId = tokenData.userId || tokenData.id || tokenData.sub || tokenData.user_id || "current-user";
+        console.log("Extracted user ID from token:", userId);
+        hasLoggedTokenInfo = true;
+        return userId;
+      } else {
+        // Just extract the user ID without logging
+        const tokenParts = token.split('.');
+        if (tokenParts.length < 2) {
+          return "current-user";
+        }
+        const tokenData = JSON.parse(atob(tokenParts[1]));
+        return tokenData.userId || tokenData.id || tokenData.sub || tokenData.user_id || "current-user";
+      }
     } catch (error) {
-      console.log("Could not extract user ID from token, using default");
+      if (!hasLoggedTokenInfo) {
+        console.log("Could not extract user ID from token, using default");
+        console.error("Token parsing error:", error);
+        hasLoggedTokenInfo = true;
+      }
       return "current-user";
+    }
+  };
+
+  // Function to clear all user-specific data
+  const clearUserData = (resetGlobalFlags = false) => {
+    console.log("Clearing all user-specific data", resetGlobalFlags ? "(with global flag reset)" : "");
+    // Clear all conversation-related localStorage items
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('conversationId_') || key === 'currentUserId')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      console.log(`Removed localStorage key: ${key}`);
+    });
+    
+    // Clear messages state
+    setMessages([]);
+    setCurrentStreamedText("");
+    setStreaming(false);
+    setLoading(false);
+    setIsLoadingHistory(false); // Reset loading state
+    hasLoadedConversationRef.current = false; // Reset conversation loaded flag
+    
+    // Only reset global flags if explicitly requested (for user switching)
+    if (resetGlobalFlags) {
+      setGlobalConversationLoaded(false); // Reset global flag
+      setGlobalCurrentUserId(null); // Reset global user ID
+      resetLoggingFlags(); // Reset logging flags for new user
     }
   };
 
   // Load chat history and get user ID on component mount
   useEffect(() => {
+    let isMounted = true; // Flag to prevent state updates after unmount
+    
     const loadChatHistory = async () => {
       try {
+        // Prevent multiple simultaneous loads
+        if (isLoadingHistory) {
+          console.log("Already loading history, skipping");
+          return;
+        }
+        
+        // Don't load if we already have messages
+        if (messages.length > 0) {
+          console.log("Messages already loaded, skipping");
+          return;
+        }
+        
+        // Don't load if we've already loaded conversation for this session
+        if (hasLoadedConversationRef.current) {
+          console.log("Conversation already loaded in this session, skipping");
+          return;
+        }
+        
         // Get user ID from auth token or localStorage
         const token = localStorage.getItem("authToken");
         if (token) {
           // Extract user ID from token
           const userId = extractUserIdFromToken(token);
+          
+          // Check global flag for this user
+          if (getGlobalConversationLoaded() && getGlobalCurrentUserId() === userId) {
+            console.log("Global flag indicates conversation already loaded for this user, skipping");
+            return;
+          }
+          
+          if (!isMounted) return; // Don't update state if component unmounted
           setUserId(userId);
+          
+          // Check if this is a different user than before
+          const existingUserId = localStorage.getItem("currentUserId");
+          console.log("Current user ID:", userId);
+          console.log("Existing user ID:", existingUserId);
+          
+          if (existingUserId && existingUserId !== userId) {
+            // New user logged in, clear everything
+            console.log("New user detected, clearing all data");
+            clearUserData(true); // Reset global flags for new user
+            hasLoadedConversationRef.current = false; // Reset the ref for new user
+            setGlobalConversationLoaded(false); // Reset global flag for new user
+            setGlobalCurrentUserId(userId); // Update global user ID
+            
+            if (!isMounted) return; // Don't continue if component unmounted
+          }
+          
+          // Store current user ID
+          localStorage.setItem("currentUserId", userId);
+          
+          // Set global user ID if not set
+          if (!getGlobalCurrentUserId()) {
+            setGlobalCurrentUserId(userId);
+          }
+          
+          setIsLoadingHistory(true);
           
           // Try to load existing conversations
           try {
+            console.log("Fetching conversations for user:", userId);
             const conversations = await api.getConversations();
+            console.log("Received conversations:", conversations);
+            
+            if (!isMounted) return; // Don't update state if component unmounted
+            
             if (conversations && Array.isArray(conversations) && conversations.length > 0) {
               // Get the most recent conversation
               const latestConversation = conversations[0];
               const conversationId = latestConversation._id;
+              console.log("Using conversation ID:", conversationId);
               
-              // Store the conversation ID for future use
-              localStorage.setItem("conversationId", conversationId);
+              // Store the conversation ID for future use (user-specific)
+              localStorage.setItem(`conversationId_${userId}`, conversationId);
               
               // Load messages from the conversation
               const conversation = await api.getConversation(conversationId);
+              console.log("Loaded conversation:", conversation);
+              
+              if (!isMounted) return; // Don't update state if component unmounted
+              
               if (conversation && conversation.messages && Array.isArray(conversation.messages)) {
                 // Convert conversation messages to frontend format
                 const formattedMessages = conversation.messages.map(msg => ({
@@ -317,39 +525,66 @@ const ChatInterface = () => {
                   timestamp: msg.timestamp
                 }));
                 setMessages(formattedMessages);
-                console.log("Conversation history loaded successfully");
+                hasLoadedConversationRef.current = true; // Mark as loaded
+                setGlobalConversationLoaded(true); // Set global flag
+                console.log("Conversation history loaded successfully, messages count:", formattedMessages.length);
               }
             } else {
               // Create a new conversation if none exist
+              console.log("No conversations found, creating new one");
               const newConversation = await api.createConversation({
                 title: "Egyptian History Chat"
               });
+              
+              if (!isMounted) return; // Don't update state if component unmounted
+              
               if (newConversation && newConversation._id) {
-                localStorage.setItem("conversationId", newConversation._id);
-                console.log("New conversation created");
+                localStorage.setItem(`conversationId_${userId}`, newConversation._id);
+                hasLoadedConversationRef.current = true; // Mark as loaded
+                setGlobalConversationLoaded(true); // Set global flag
+                console.log("New conversation created with ID:", newConversation._id);
               }
             }
           } catch (conversationError) {
             console.log("Conversation features not available, falling back to simple chat");
-            setConversationFeaturesAvailable(false);
+            console.error("Conversation error details:", conversationError);
+            
+            if (isMounted) {
+              setConversationFeaturesAvailable(false);
+            }
           }
+        } else {
+          console.log("No auth token found");
         }
       } catch (error) {
         console.log("Could not initialize chat history");
+        console.error("Error details:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingHistory(false);
+        }
       }
     };
 
     if (ENABLE_CHAT_HISTORY) {
       loadChatHistory();
     }
-  }, []);
+    
+    // Cleanup function to clear conversation data when component unmounts
+    return () => {
+      isMounted = false; // Prevent further state updates
+      console.log("Component unmounting, clearing user data");
+      localStorage.removeItem("currentUserId");
+      localStorage.removeItem("conversationId");
+    };
+  }, []); // Empty dependency array - only run once on mount
 
   // Function to save message to conversation
   const saveMessageToConversation = async (message) => {
     if (!conversationFeaturesAvailable) return;
     
     try {
-      const conversationId = localStorage.getItem("conversationId");
+      const conversationId = localStorage.getItem(`conversationId_${userId}`);
       if (!conversationId) return;
       
       const messageData = {
@@ -738,7 +973,7 @@ const ChatInterface = () => {
 
       if (conversationFeaturesAvailable) {
         // Try to use conversation features
-        const conversationId = localStorage.getItem("conversationId");
+        const conversationId = localStorage.getItem(`conversationId_${userId}`);
         
         requestData = {
           query: input.trim(),
@@ -802,11 +1037,43 @@ const ChatInterface = () => {
     }
   };
 
+  // Function to handle user logout
+  const handleLogout = () => {
+    console.log("User logging out, clearing all data");
+    clearUserData(true); // Reset global flags
+    setUserId(null);
+    // Remove auth token
+    localStorage.removeItem("authToken");
+    // Reset global flags
+    setGlobalConversationLoaded(false);
+    setGlobalCurrentUserId(null);
+    resetLoggingFlags(); // Reset logging flags
+  };
+
   return (
     <div className="chat-container">
       <header className="chat-header">
         <h2>🏺 Egyptian History Assistant</h2>
         <p>Powered by RAG Technology</p>
+        <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
+          <button 
+            onClick={() => {
+              api.logout();
+              window.location.href = '/'; // Redirect to login page
+            }}
+            style={{
+              background: '#666',
+              color: 'white',
+              border: 'none',
+              padding: '5px 10px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </header>
       {/* <img src={backgroundChanger() || pyramids} alt="" className="imgCover" /> */}
       {/* <img src={backgroundImage} alt="" className="imgCover fade-bg" /> */}
@@ -860,7 +1127,7 @@ const ChatInterface = () => {
                           let requestData;
                           
                           if (conversationFeaturesAvailable) {
-                            const conversationId = localStorage.getItem("conversationId");
+                            const conversationId = localStorage.getItem(`conversationId_${userId}`);
                             requestData = {
                               query: suggestion,
                               conversationId: conversationId,

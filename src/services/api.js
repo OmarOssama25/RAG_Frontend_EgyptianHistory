@@ -72,6 +72,18 @@ const api = {
   login: async (data) => {
     try {
       const response = await axiosInstance.post(`/auth/login`, data);
+      
+      // Store the authentication token if it's in the response
+      if (response.data && response.data.token) {
+        localStorage.setItem("authToken", response.data.token);
+        console.log("Authentication token stored successfully");
+      } else if (response.data && response.data.accessToken) {
+        localStorage.setItem("authToken", response.data.accessToken);
+        console.log("Authentication token stored successfully");
+      } else {
+        console.log("No token found in login response:", response.data);
+      }
+      
       return response.data;
     } catch (error) {
       console.error("Error during login:", error);
@@ -87,6 +99,35 @@ const api = {
       console.error("Error during signup:", error);
       throw error;
     }
+  },
+
+  logout: () => {
+    // Clear the authentication token and all related data
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("currentUserId");
+    localStorage.removeItem("globalConversationLoaded");
+    localStorage.removeItem("globalCurrentUserId");
+    
+    // Clear all conversation-related keys
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('conversationId_') || key.startsWith('global'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    console.log("All authentication and conversation data cleared");
+  },
+
+  isAuthenticated: () => {
+    const token = localStorage.getItem("authToken");
+    return !!token;
+  },
+
+  getAuthToken: () => {
+    return localStorage.getItem("authToken");
   },
 
   // Conversation management
@@ -185,6 +226,30 @@ const api = {
         // Use conversation endpoint if conversationId is provided AND conversation features are enabled
         if (questionOrRequest.conversationId && useConversationFeatures) {
           endpoint = `/chat/conversations/${questionOrRequest.conversationId}/messages`;
+          
+          // Try formatting as a message object since backend expects role and content
+          requestData = {
+            role: "user",
+            content: questionOrRequest.query
+          };
+          
+          // Debug: Log the formatted conversation history
+          console.log("Formatted conversation history for API:", questionOrRequest.conversationHistory);
+          console.log("Request data being sent:", requestData);
+          
+          // Detailed debugging: Log each message structure
+          if (questionOrRequest.conversationHistory) {
+            questionOrRequest.conversationHistory.forEach((msg, index) => {
+              console.log(`Message ${index}:`, {
+                role: msg.role,
+                content: msg.content,
+                roleType: typeof msg.role,
+                contentType: typeof msg.content,
+                hasRole: !!msg.role,
+                hasContent: !!msg.content
+              });
+            });
+          }
         }
       }
 
@@ -195,6 +260,34 @@ const api = {
         const response = await axiosInstance.post(endpoint, requestData);
         console.log("Raw axios response:", response);
         console.log("Response data type:", typeof response.data);
+        console.log("Full response data:", response.data);
+
+        // Check if the response contains an AI answer or just the saved message
+        if (response.data && response.data.answer) {
+          // Response contains AI answer
+          console.log("Conversation endpoint returned AI answer");
+          return response.data;
+        } else if (response.data && response.data.content && response.data.role === "user") {
+          // Response is just the saved user message, need to get AI answer
+          console.log("Conversation endpoint saved message, but no AI answer. This suggests the conversation endpoint doesn't return AI responses.");
+          
+          // The conversation endpoint only saves messages but doesn't return AI responses.
+          // Since the backend RAG controller retrieves conversation history from the database
+          // when conversationId is provided, we should use the conversationId in the query.
+          
+          // Use the regular query endpoint with the conversationId so the backend
+          // will retrieve the conversation history from the database
+          const queryData = {
+            query: questionOrRequest.query,
+            conversationId: questionOrRequest.conversationId
+          };
+          
+          console.log("Getting AI response with conversationId:", queryData);
+          const aiResponse = await axiosInstance.post("/query", queryData);
+          console.log("AI response received:", aiResponse.data);
+          
+          return aiResponse.data;
+        }
 
         // If response.data is a string that looks like JSON, parse it
         if (
@@ -214,6 +307,7 @@ const api = {
         // If conversation endpoint fails, fall back to regular query endpoint
         if (endpoint !== "/query" && conversationError.response?.status === 400) {
           console.log("Conversation endpoint failed, falling back to regular query endpoint");
+          console.log("Conversation error details:", conversationError.response?.data);
           
           // Extract query and enhance it with context if available
           let fallbackQuery = typeof questionOrRequest === "string" 
@@ -249,8 +343,40 @@ const api = {
           }
           
           const fallbackData = {
-            query: fallbackQuery
+            query: fallbackQuery,
+            chat_history: questionOrRequest.conversationHistory ? 
+              questionOrRequest.conversationHistory
+                .filter(msg => msg.role && msg.content) // Filter out messages without required fields
+                .filter(msg => {
+                  // Filter out assistant messages that are just follow-up suggestions
+                  if (msg.role === 'assistant') {
+                    const content = msg.content.toLowerCase();
+                    return !content.includes('you might also want to ask') && 
+                           !content.includes('follow-up') &&
+                           !content.includes('suggestions');
+                  }
+                  return true;
+                })
+                .map(msg => ({
+                  role: msg.role,
+                  content: msg.content
+                })) : []
           };
+          
+          console.log("Fallback query data with conversation history:", fallbackData);
+          console.log("Filtered conversation history details:", fallbackData.chat_history.map((msg, index) => ({
+            index,
+            role: msg.role,
+            content: msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '')
+          })));
+          console.log("Full request body being sent to /query endpoint:", JSON.stringify(fallbackData, null, 2));
+          
+          // Test: Let's also try sending the request with a different field name to see if that works
+          const testData = {
+            query: fallbackData.query,
+            conversationHistory: fallbackData.chat_history // Try the original field name too
+          };
+          console.log("Also trying with conversationHistory field:", JSON.stringify(testData, null, 2));
           
           const fallbackResponse = await axiosInstance.post("/query", fallbackData);
           console.log("Fallback response:", fallbackResponse);
