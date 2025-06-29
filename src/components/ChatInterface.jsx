@@ -678,7 +678,7 @@ const ChatInterface = () => {
     setMessages((prev) => [...prev, botMessage]);
     
     // Save bot message to conversation
-    saveMessageToConversation(botMessage);
+    //saveMessageToConversation(botMessage);
     
     setStreaming(false);
     setCurrentStreamedText("");
@@ -961,7 +961,7 @@ const ChatInterface = () => {
     setMessages((prev) => [...prev, userMessage]);
     
     // Save user message to conversation
-    saveMessageToConversation(userMessage);
+    //saveMessageToConversation(userMessage);
     
     setInput("");
     setLoading(true);
@@ -1118,7 +1118,7 @@ const ChatInterface = () => {
                           setMessages((prev) => [...prev, userMessage]);
                           
                           // Save user message to conversation
-                          saveMessageToConversation(userMessage);
+                          //saveMessageToConversation(userMessage);
                           
                           setInput("");
                           setLoading(true);
